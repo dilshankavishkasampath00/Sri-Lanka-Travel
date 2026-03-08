@@ -3,6 +3,7 @@ import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { GoogleGenAI } from '@google/genai';
+import { getLocationImage, getSriLankaLocations } from '../services/LocationImageService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -77,17 +78,18 @@ const AiTripPlanner = () => {
             Structure the HTML day-by-day (or chunked by days like "Days 1-3").
             Make it look beautiful, modern, and exciting.
             
-            IMPORTANT - For images, DO NOT use placeholder URLs. Instead, use these real working Sri Lanka images:
-            - Sigiriya Rock: https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=500&h=300&fit=crop
-            - Kandy Temple: https://images.unsplash.com/photo-1548013146-72f92f4d6d6d?w=500&h=300&fit=crop
-            - Ella Rock: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
-            - Galle Fort: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
-            - Tea Plantation: https://images.unsplash.com/photo-1577003833154-a92bbd0e92e7?w=500&h=300&fit=crop
-            - Mirissa Beach: https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&h=300&fit=crop
-            - Adam's Peak: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
-            - Nuwara Eliya: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
+            IMPORTANT LOCATION NAMES - Use these exact names in your headings/alt text so real images can be fetched:
+            - Sigiriya, Kandy, Ella, Galle, Mirissa, Colombo, Nuwara Eliya, Anuradhapura, Horton Plains, Matara
             
-            Wrap all img tags with: <div class="w-full h-40 overflow-hidden rounded-lg"><img class="w-full h-full object-cover" src="..." alt="..." /></div>`;
+            For images, use these working URLs or let the system fetch real images:
+            https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=500&h=300&fit=crop (Sigiriya)
+            https://images.unsplash.com/photo-1548013146-72f92f4d6d6d?w=500&h=300&fit=crop (Kandy)
+            https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop (Ella/Mountains)
+            https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&h=300&fit=crop (Beaches)
+            
+            Wrap all img tags with: <div class="w-full h-40 overflow-hidden rounded-lg"><img class="w-full h-full object-cover" src="..." alt="Location Name" /></div>
+            
+            In alt text, ALWAYS include the location name (e.g., alt="Sigiriya Rock", alt="Kandy Temple", alt="Ella Viewpoint") so real images can be matched.`;
 
             setGenerationProgress('🤖 AI is analyzing your preferences...');
 
@@ -128,7 +130,12 @@ const AiTripPlanner = () => {
                 }
 
                 setGenerationProgress('✨ Finalizing your itinerary...');
-                setItineraryHtml(enhanceHtmlWithFallbacks(htmlPart.trim()));
+                
+                // Extract location names and fetch real images
+                const locationNames = extractLocationNamesFromHtml(htmlPart.trim());
+                let finalHtml = await replaceImagesWithLocationImages(enhanceHtmlWithFallbacks(htmlPart.trim()), locationNames);
+                
+                setItineraryHtml(finalHtml);
                 setRefinementInput('');
                 setSuccessMsg(isRefinement ? '✅ Itinerary updated! Great choice.' : '✅ Itinerary created! Ready to explore?');
             } else {
@@ -136,7 +143,12 @@ const AiTripPlanner = () => {
                 let cleanHtml = responseText;
                 if (cleanHtml.startsWith('\`\`\`html')) cleanHtml = cleanHtml.replace('\`\`\`html', '');
                 if (cleanHtml.endsWith('\`\`\`')) cleanHtml = cleanHtml.replace(/\`\`\`$/, '');
-                setItineraryHtml(enhanceHtmlWithFallbacks(cleanHtml.trim()));
+                
+                // Extract location names and fetch real images
+                const locationNames = extractLocationNamesFromHtml(cleanHtml.trim());
+                let finalHtml = await replaceImagesWithLocationImages(enhanceHtmlWithFallbacks(cleanHtml.trim()), locationNames);
+                
+                setItineraryHtml(finalHtml);
                 setRefinementInput('');
                 setSuccessMsg('✅ Itinerary ready!');
             }
@@ -176,6 +188,64 @@ const AiTripPlanner = () => {
             return match.replace('img', 'img onerror="this.style.backgroundColor=\'#f0f0f0\'; this.style.minHeight=\'10rem\'"');
         });
         return enhanced;
+    };
+
+    const extractLocationNamesFromHtml = (html) => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const locations = new Set();
+        
+        // Extract all h3, h4, h5 text which usually contains location names
+        const headings = doc.querySelectorAll('h3, h4, h5');
+        const sriLankaLocations = getSriLankaLocations();
+        
+        headings.forEach(heading => {
+            const text = heading.textContent;
+            // Check if any location name is mentioned
+            sriLankaLocations.forEach(location => {
+                if (text.toLowerCase().includes(location.toLowerCase())) {
+                    locations.add(location);
+                }
+            });
+        });
+        
+        return Array.from(locations);
+    };
+
+    const replaceImagesWithLocationImages = async (html, locationNames) => {
+        try {
+            setGenerationProgress('🖼️ Fetching real location images...');
+            
+            // Fetch images for all locations
+            const imageMap = new Map();
+            for (const location of locationNames) {
+                const imageUrl = await getLocationImage(location);
+                imageMap.set(location, imageUrl);
+            }
+            
+            // Replace image URLs in HTML
+            let updatedHtml = html;
+            const locations = getSriLankaLocations();
+            
+            locations.forEach(location => {
+                if (imageMap.has(location)) {
+                    const imageUrl = imageMap.get(location);
+                    // Replace any generic image URLs with the location-specific image
+                    const escaped = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    
+                    // Find and replace img src that follows common patterns
+                    updatedHtml = updatedHtml.replace(
+                        new RegExp(`<img([^>]*?)src="[^"]*"([^>]*?alt="[^"]*${escaped}[^"]*"[^>]*)>`, 'gi'),
+                        `<img$1src="${imageUrl}"$2>`
+                    );
+                }
+            });
+            
+            return updatedHtml;
+        } catch (error) {
+            console.error('Error fetching location images:', error);
+            return html;
+        }
     };
 
     const { isLoaded } = useJsApiLoader({
