@@ -75,7 +75,19 @@ const AiTripPlanner = () => {
             The HTML should ONLY be RAW HTML inside a <div> tag. Do not include markdown ticks (\`\`\`html).
             Use Tailwind classes for styling (e.g., text-xl, font-bold, text-primary, mb-4, bg-white, dark:bg-slate-900, p-6, rounded-xl, shadow-sm).
             Structure the HTML day-by-day (or chunked by days like "Days 1-3").
-            Make it look beautiful, modern, and exciting. Include generic placeholder URLs for images if you like.`;
+            Make it look beautiful, modern, and exciting.
+            
+            IMPORTANT - For images, DO NOT use placeholder URLs. Instead, use these real working Sri Lanka images:
+            - Sigiriya Rock: https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=500&h=300&fit=crop
+            - Kandy Temple: https://images.unsplash.com/photo-1548013146-72f92f4d6d6d?w=500&h=300&fit=crop
+            - Ella Rock: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
+            - Galle Fort: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
+            - Tea Plantation: https://images.unsplash.com/photo-1577003833154-a92bbd0e92e7?w=500&h=300&fit=crop
+            - Mirissa Beach: https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&h=300&fit=crop
+            - Adam's Peak: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
+            - Nuwara Eliya: https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop
+            
+            Wrap all img tags with: <div class="w-full h-40 overflow-hidden rounded-lg"><img class="w-full h-full object-cover" src="..." alt="..." /></div>`;
 
             setGenerationProgress('🤖 AI is analyzing your preferences...');
 
@@ -116,7 +128,7 @@ const AiTripPlanner = () => {
                 }
 
                 setGenerationProgress('✨ Finalizing your itinerary...');
-                setItineraryHtml(htmlPart.trim());
+                setItineraryHtml(enhanceHtmlWithFallbacks(htmlPart.trim()));
                 setRefinementInput('');
                 setSuccessMsg(isRefinement ? '✅ Itinerary updated! Great choice.' : '✅ Itinerary created! Ready to explore?');
             } else {
@@ -124,7 +136,7 @@ const AiTripPlanner = () => {
                 let cleanHtml = responseText;
                 if (cleanHtml.startsWith('\`\`\`html')) cleanHtml = cleanHtml.replace('\`\`\`html', '');
                 if (cleanHtml.endsWith('\`\`\`')) cleanHtml = cleanHtml.replace(/\`\`\`$/, '');
-                setItineraryHtml(cleanHtml.trim());
+                setItineraryHtml(enhanceHtmlWithFallbacks(cleanHtml.trim()));
                 setRefinementInput('');
                 setSuccessMsg('✅ Itinerary ready!');
             }
@@ -151,6 +163,19 @@ const AiTripPlanner = () => {
         }
         setIsGenerating(false);
         setGenerationProgress('');
+    };
+
+    const enhanceHtmlWithFallbacks = (html) => {
+        // Add onerror event to all images to show fallback
+        const enhanced = html.replace(/<img([^>]*)>/g, (match) => {
+            // Check if onerror already exists
+            if (match.includes('onerror')) {
+                return match;
+            }
+            // Add fallback image handler
+            return match.replace('img', 'img onerror="this.style.backgroundColor=\'#f0f0f0\'; this.style.minHeight=\'10rem\'"');
+        });
+        return enhanced;
     };
 
     const { isLoaded } = useJsApiLoader({
