@@ -3,7 +3,7 @@ import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { GoogleGenAI } from '@google/genai';
-import { getLocationImage, getSriLankaLocations } from '../services/LocationImageService';
+import { getLocationImage, getSriLankaLocations, getLocationData } from '../services/LocationImageService';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -214,38 +214,70 @@ const AiTripPlanner = () => {
 
     const replaceImagesWithLocationImages = async (html, locationNames) => {
         try {
-            setGenerationProgress('🖼️ Fetching real location images...');
+            setGenerationProgress('🖼️ Fetching REAL location images from coordinates...');
             
             // Fetch images for all locations
             const imageMap = new Map();
+            const locationData = getLocationData();
+            
             for (const location of locationNames) {
+                setGenerationProgress(`📍 Fetching ${location} image...`);
                 const imageUrl = await getLocationImage(location);
-                imageMap.set(location, imageUrl);
+                imageMap.set(location.toLowerCase(), imageUrl);
             }
             
-            // Replace image URLs in HTML
+            // Replace image URLs in HTML with location-specific images
             let updatedHtml = html;
-            const locations = getSriLankaLocations();
+            const sriLankaLocations = getSriLankaLocations();
             
-            locations.forEach(location => {
-                if (imageMap.has(location)) {
-                    const imageUrl = imageMap.get(location);
-                    // Replace any generic image URLs with the location-specific image
-                    const escaped = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Try to match and replace all location image references
+            sriLankaLocations.forEach(location => {
+                const lowerLocation = location.toLowerCase();
+                
+                if (imageMap.has(lowerLocation)) {
+                    const imageUrl = imageMap.get(lowerLocation);
                     
-                    // Find and replace img src that follows common patterns
+                    // Replace images with alt text containing location name
+                    const altPatterns = [
+                        `alt="${location}"`,
+                        `alt='${location}'`,
+                        `alt="${location}.*?"`,
+                        `alt='${location}.*?'`
+                    ];
+                    
+                    altPatterns.forEach(pattern => {
+                        updatedHtml = updatedHtml.replace(
+                            new RegExp(`<img([^>]*?)src="[^"]*"([^>]*?${pattern}[^>]*)>`, 'gi'),
+                            `<img$1src="${imageUrl}"$2>`
+                        );
+                    });
+                    
+                    // Also replace images in divs with location name comments
                     updatedHtml = updatedHtml.replace(
-                        new RegExp(`<img([^>]*?)src="[^"]*"([^>]*?alt="[^"]*${escaped}[^"]*"[^>]*)>`, 'gi'),
-                        `<img$1src="${imageUrl}"$2>`
+                        new RegExp(`<!-- ${location}[^>]*? -->`, 'gi'),
+                        `<!-- ${location} - ${imageUrl} -->`
                     );
                 }
             });
             
+            // Replace any remaining broken image placeholders
+            updatedHtml = updatedHtml.replace(
+                /src="https:\/\/images\.unsplash\.com\/search\?/g,
+                `src="${getUnsplashImageUrl('Sri Lanka landscape')}&`
+            );
+            
             return updatedHtml;
         } catch (error) {
             console.error('Error fetching location images:', error);
+            setGenerationProgress('⚠️ Using fallback images...');
             return html;
         }
+    };
+    
+    // Helper function for fallback
+    const getUnsplashImageUrl = (term) => {
+        const encoded = encodeURIComponent(term);
+        return `https://images.unsplash.com/search?q=${encoded}&w=500&h=300&fit=crop`;
     };
 
     const { isLoaded } = useJsApiLoader({

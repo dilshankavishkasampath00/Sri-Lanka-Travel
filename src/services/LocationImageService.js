@@ -1,6 +1,6 @@
 /**
- * LocationImageService - Fetches real images for Sri Lanka locations
- * Uses multiple sources: Google Places API, Unsplash API, and Pexels API
+ * LocationImageService - Fetches REAL images for Sri Lanka locations
+ * Uses multiple sources: Google Street View, Unsplash API, Pexels API
  */
 
 const SRI_LANKA_LOCATIONS = {
@@ -18,6 +18,17 @@ const SRI_LANKA_LOCATIONS = {
 
 // Cache to avoid duplicate API calls
 const imageCache = new Map();
+
+/**
+ * Get Google Street View image for a location (REAL location photo)
+ * Uses Google Maps API to fetch actual street view images
+ */
+function getGoogleStreetViewUrl(lat, lng, width = 500, height = 300) {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  if (!apiKey) return null;
+  
+  return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${lat},${lng}&fov=90&heading=0&pitch=0&key=${apiKey}`;
+}
 
 /**
  * Fetch image from Unsplash API (free, no key required for basic usage)
@@ -84,7 +95,7 @@ async function fetchFromPexels(searchTerm) {
 
 /**
  * Get image for a location
- * Tries multiple sources and returns the first successful result
+ * Priority: Google Street View (REAL location) → Pexels → Unsplash → Fallback
  */
 export async function getLocationImage(locationName) {
   // Check cache first
@@ -94,11 +105,13 @@ export async function getLocationImage(locationName) {
 
   let imageUrl = null;
   const searchTerms = [];
+  let coords = null;
 
-  // Get search terms for the location
+  // Get search terms and coordinates for the location
   for (const [key, value] of Object.entries(SRI_LANKA_LOCATIONS)) {
     if (locationName.toLowerCase().includes(key.toLowerCase())) {
       searchTerms.push(...value.terms);
+      coords = { lat: value.lat, lng: value.lng };
       break;
     }
   }
@@ -108,19 +121,44 @@ export async function getLocationImage(locationName) {
     searchTerms.push(`${locationName} Sri Lanka`);
   }
 
-  // Try to fetch from each source
+  // First priority: Try Google Street View for REAL location photos
+  if (coords) {
+    try {
+      const streetViewUrl = getGoogleStreetViewUrl(coords.lat, coords.lng, 500, 300);
+      if (streetViewUrl) {
+        imageUrl = streetViewUrl;
+        // Cache and return immediately
+        imageCache.set(locationName, imageUrl);
+        return imageUrl;
+      }
+    } catch (error) {
+      console.log('Google Street View failed:', error);
+    }
+  }
+
+  // Second priority: Try to fetch from Pexels
   for (const term of searchTerms) {
     try {
-      // Try Pexels first (usually better quality)
       imageUrl = await fetchFromPexels(term);
-      if (imageUrl) break;
-
-      // Try Unsplash as fallback
-      imageUrl = await fetchFromUnsplash(term);
-      if (imageUrl) break;
+      if (imageUrl) {
+        imageCache.set(locationName, imageUrl);
+        return imageUrl;
+      }
     } catch (error) {
-      console.log(`Failed to fetch image for "${term}":`, error);
-      continue;
+      console.log(`Failed to fetch from Pexels for "${term}":`, error);
+    }
+  }
+
+  // Third priority: Try to fetch from Unsplash
+  for (const term of searchTerms) {
+    try {
+      imageUrl = await fetchFromUnsplash(term);
+      if (imageUrl) {
+        imageCache.set(locationName, imageUrl);
+        return imageUrl;
+      }
+    } catch (error) {
+      console.log(`Failed to fetch from Unsplash for "${term}":`, error);
     }
   }
 
@@ -132,6 +170,18 @@ export async function getLocationImage(locationName) {
   // Cache the result
   imageCache.set(locationName, imageUrl);
   return imageUrl;
+}
+
+/**
+ * Get location coordinates
+ */
+export function getLocationCoordinates(locationName) {
+  for (const [key, value] of Object.entries(SRI_LANKA_LOCATIONS)) {
+    if (locationName.toLowerCase().includes(key.toLowerCase())) {
+      return { lat: value.lat, lng: value.lng };
+    }
+  }
+  return null;
 }
 
 /**
@@ -154,4 +204,11 @@ export function clearImageCache() {
  */
 export function getSriLankaLocations() {
   return Object.keys(SRI_LANKA_LOCATIONS);
+}
+
+/**
+ * Get location data (lat, lng, terms)
+ */
+export function getLocationData() {
+  return SRI_LANKA_LOCATIONS;
 }
