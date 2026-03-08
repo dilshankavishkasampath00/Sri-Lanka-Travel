@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -32,6 +32,29 @@ const AiTripPlanner = () => {
         { lat: 7.2906, lng: 80.6337 }, // Kandy
         { lat: 6.0535, lng: 80.2210 }  // Galle
     ]);
+
+    // States for location images in Build Your Trip
+    const [locationImages, setLocationImages] = useState({});
+    const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+    const featuredLocations = ['Sigiriya', 'Kandy', 'Ella', 'Galle', 'Mirissa'];
+
+    // Load location images on component mount
+    useEffect(() => {
+        const loadLocationImages = async () => {
+            const images = {};
+            for (const location of featuredLocations) {
+                try {
+                    const imageUrl = await getLocationImage(location);
+                    images[location] = imageUrl;
+                } catch (error) {
+                    console.warn(`Could not load image for ${location}:`, error);
+                }
+            }
+            setLocationImages(images);
+        };
+
+        loadLocationImages();
+    }, []);
 
     const toggleInterest = (interest) => {
         setInterests(prev =>
@@ -439,7 +462,86 @@ const AiTripPlanner = () => {
                             </div>
                         </div>
 
-                        <div className="rounded-xl overflow-hidden shadow-sm border border-primary/5 bg-white dark:bg-slate-900">
+                        {/* Location Photos Gallery */}
+                        <div className="rounded-xl overflow-hidden shadow-md border border-primary/5 bg-white dark:bg-slate-900">
+                            <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                                <h4 className="font-bold text-sm flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary text-lg">photo_library</span>
+                                    Popular Locations
+                                </h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Beautiful places you'll visit</p>
+                            </div>
+                            <div className="relative h-48 overflow-hidden bg-slate-200 dark:bg-slate-800">
+                                {Object.keys(locationImages).length > 0 ? (
+                                    <>
+                                        <img 
+                                            src={locationImages[featuredLocations[currentPhotoIndex]] || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&h=300&fit=crop'}
+                                            alt={featuredLocations[currentPhotoIndex]}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => { e.target.style.backgroundColor = '#f0f0f0'; }}
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                                            <p className="text-white font-bold text-sm">{featuredLocations[currentPhotoIndex]}</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-4xl text-slate-400 animate-pulse">image</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Photo navigation dots */}
+                            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/50 gap-2">
+                                <button
+                                    onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? featuredLocations.length - 1 : prev - 1))}
+                                    className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                                </button>
+                                
+                                <div className="flex gap-1">
+                                    {featuredLocations.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setCurrentPhotoIndex(idx)}
+                                            className={`h-2 rounded-full transition-all ${
+                                                idx === currentPhotoIndex
+                                                    ? 'w-6 bg-primary'
+                                                    : 'w-2 bg-slate-300 dark:bg-slate-600'
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                                
+                                <button
+                                    onClick={() => setCurrentPhotoIndex((prev) => (prev === featuredLocations.length - 1 ? 0 : prev + 1))}
+                                    className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                                </button>
+                            </div>
+
+                            {/* Location tags */}
+                            <div className="p-3 flex flex-wrap gap-2">
+                                {featuredLocations.map((location) => (
+                                    <button
+                                        key={location}
+                                        onClick={() => setCurrentPhotoIndex(featuredLocations.indexOf(location))}
+                                        className={`text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors ${
+                                            currentPhotoIndex === featuredLocations.indexOf(location)
+                                                ? 'bg-primary text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-primary/20'
+                                        }`}
+                                    >
+                                        {location}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl overflow-hidden shadow-md border border-primary/5 bg-white dark:bg-slate-900">
                             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                 <h4 className="font-bold">Route Map</h4>
                                 <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase">Dynamic</span>
