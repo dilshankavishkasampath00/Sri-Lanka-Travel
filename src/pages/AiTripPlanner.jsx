@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -8,17 +8,21 @@ const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const AiTripPlanner = () => {
     const libraries = ['places'];
+    const abortControllerRef = useRef(null);
 
     // States for user input
     const [duration, setDuration] = useState('10 Days');
     const [budget, setBudget] = useState('Moderate');
     const [specialRequests, setSpecialRequests] = useState('');
     const [interests, setInterests] = useState(['Beaches', 'History']);
+    const [refinementInput, setRefinementInput] = useState('');
 
     // States for AI output
     const [isGenerating, setIsGenerating] = useState(false);
+    const [generationProgress, setGenerationProgress] = useState('');
     const [itineraryHtml, setItineraryHtml] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
 
     // States for Map Route
     const [routePath, setRoutePath] = useState([
@@ -36,16 +40,30 @@ const AiTripPlanner = () => {
         );
     };
 
-    const generateItinerary = async () => {
+    const generateItinerary = async (isRefinement = false) => {
         setIsGenerating(true);
         setErrorMsg('');
+        setSuccessMsg('');
+        setGenerationProgress('Initializing AI...');
+
+        // Cancel any previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
 
         try {
+            const refinementContext = isRefinement && itineraryHtml
+                ? `\n\nPrevious itinerary context: The user previously generated an itinerary and is now requesting: "${refinementInput}"\nPlease update the itinerary accordingly while keeping the overall structure intact.`
+                : '';
+
+            setGenerationProgress('Crafting your personalized itinerary...');
+
             const prompt = `Act as an expert Sri Lankan travel agent. Generate an engaging HTML-formatted travel itinerary for Sri Lanka.
             Duration: ${duration}
             Budget: ${budget}
             Interests: ${interests.join(', ')}
-            Special Requests: ${specialRequests || 'None'}
+            Special Requests: ${specialRequests || 'None'}${refinementContext}
             
             Return the response exactly in this format with these two separators:
             ---JSON---
@@ -59,10 +77,20 @@ const AiTripPlanner = () => {
             Structure the HTML day-by-day (or chunked by days like "Days 1-3").
             Make it look beautiful, modern, and exciting. Include generic placeholder URLs for images if you like.`;
 
+            setGenerationProgress('🤖 AI is analyzing your preferences...');
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
             });
+
+            if (abortControllerRef.current.signal.aborted) {
+                setIsGenerating(false);
+                setGenerationProgress('');
+                return;
+            }
+
+            setGenerationProgress('📍 Processing route coordinates...');
 
             const responseText = response.text;
 
@@ -80,26 +108,49 @@ const AiTripPlanner = () => {
                 try {
                     const parsedCoords = JSON.parse(jsonPart.trim());
                     if (Array.isArray(parsedCoords) && parsedCoords.length > 0) {
+                        setGenerationProgress('🗺️ Updating route map...');
                         setRoutePath(parsedCoords);
                     }
                 } catch (e) {
                     console.error("Failed to parse map coordinates:", e);
                 }
+
+                setGenerationProgress('✨ Finalizing your itinerary...');
                 setItineraryHtml(htmlPart.trim());
+                setRefinementInput('');
+                setSuccessMsg(isRefinement ? '✅ Itinerary updated! Great choice.' : '✅ Itinerary created! Ready to explore?');
             } else {
                 // Fallback if AI doesn't follow strict format
                 let cleanHtml = responseText;
                 if (cleanHtml.startsWith('\`\`\`html')) cleanHtml = cleanHtml.replace('\`\`\`html', '');
                 if (cleanHtml.endsWith('\`\`\`')) cleanHtml = cleanHtml.replace(/\`\`\`$/, '');
                 setItineraryHtml(cleanHtml.trim());
+                setRefinementInput('');
+                setSuccessMsg('✅ Itinerary ready!');
             }
 
         } catch (error) {
-            console.error(error);
-            setErrorMsg('Failed to generate itinerary. Please check your Gemini API Key in .env.local');
+            if (error.name === 'AbortError') {
+                setGenerationProgress('');
+                setErrorMsg('⏸️ Generation cancelled.');
+            } else {
+                console.error(error);
+                setErrorMsg('❌ Failed to generate itinerary. Please check your Gemini API Key in .env.local');
+            }
         } finally {
             setIsGenerating(false);
+            if (abortControllerRef.current?.signal.aborted !== true) {
+                setGenerationProgress('');
+            }
         }
+    };
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        setIsGenerating(false);
+        setGenerationProgress('');
     };
 
     const { isLoaded } = useJsApiLoader({
@@ -183,18 +234,53 @@ const AiTripPlanner = () => {
                                     ></textarea>
                                 </div>
 
-                                {errorMsg && <p className="text-red-500 text-xs font-bold">{errorMsg}</p>}
+                                {errorMsg && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-red-700 dark:text-red-400 text-sm font-medium">
+                                        {errorMsg}
+                                    </div>
+                                )}
 
-                                <button
-                                    onClick={generateItinerary}
-                                    disabled={isGenerating}
-                                    className={`w-full rounded-lg bg-primary py-4 font-bold text-white shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    <span className={`material-symbols-outlined ${isGenerating ? 'animate-spin' : ''}`}>
-                                        {isGenerating ? 'refresh' : 'auto_fix_high'}
-                                    </span>
-                                    {isGenerating ? 'AI is working...' : 'Regenerate Itinerary'}
-                                </button>
+                                {successMsg && (
+                                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-green-700 dark:text-green-400 text-sm font-medium">
+                                        {successMsg}
+                                    </div>
+                                )}
+
+                                {generationProgress && (
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 animate-spin text-lg">
+                                                sync
+                                            </span>
+                                            <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">{generationProgress}</p>
+                                        </div>
+                                        <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                                            <div className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => generateItinerary(false)}
+                                        disabled={isGenerating}
+                                        className={`flex-1 rounded-lg bg-primary py-4 font-bold text-white shadow-lg shadow-primary/20 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        <span className={`material-symbols-outlined ${isGenerating ? 'animate-spin' : ''}`}>
+                                            {isGenerating ? 'frame_reload' : 'auto_fix_high'}
+                                        </span>
+                                        {isGenerating ? 'Generating...' : 'Generate Itinerary'}
+                                    </button>
+                                    {isGenerating && (
+                                        <button
+                                            onClick={stopGeneration}
+                                            className="rounded-lg bg-red-500 hover:bg-red-600 py-4 px-6 font-bold text-white shadow-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined">stop_circle</span>
+                                            Stop
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -340,16 +426,33 @@ const AiTripPlanner = () => {
 
                         <div className="bg-primary/5 rounded-2xl p-8 border border-primary/20 flex flex-col items-center text-center">
                             <div className="bg-primary/20 p-3 rounded-full mb-4">
-                                <span className="material-symbols-outlined text-primary text-3xl">smart_toy</span>
+                                <span className="material-symbols-outlined text-primary text-3xl">edit_square</span>
                             </div>
-                            <h4 className="text-xl font-bold mb-2">Need to adjust something?</h4>
-                            <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Our AI assistant is here to refine your itinerary. Just type what you want to change!</p>
+                            <h4 className="text-xl font-bold mb-2">Refine Your Itinerary</h4>
+                            <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Want to tweak something? Tell the AI what to adjust and it will instantly update your plan!</p>
                             <div className="w-full max-w-lg relative">
-                                <input className="w-full rounded-xl border border-slate-200 py-4 pl-6 pr-14 shadow-md focus:border-primary focus:ring-primary dark:bg-slate-800 dark:border-slate-700" placeholder="Add more beach days in the south..." type="text" />
-                                <button className="absolute right-3 top-3 bg-primary text-white p-2 rounded-lg hover:scale-105 transition-transform">
-                                    <span className="material-symbols-outlined">send</span>
+                                <textarea 
+                                    value={refinementInput}
+                                    onChange={(e) => setRefinementInput(e.target.value)}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && e.ctrlKey && refinementInput.trim() && !isGenerating) {
+                                            generateItinerary(true);
+                                        }
+                                    }}
+                                    disabled={isGenerating}
+                                    className="w-full rounded-xl border border-slate-200 py-3 pl-4 pr-14 shadow-md focus:border-primary focus:ring-primary dark:bg-slate-800 dark:border-slate-700 text-sm resize-none h-20 disabled:opacity-50 disabled:cursor-not-allowed" 
+                                    placeholder="E.g., Add more beach days, prefer vegetarian meals, include diving..."
+                                />
+                                <button 
+                                    onClick={() => generateItinerary(true)}
+                                    disabled={isGenerating || !refinementInput.trim() || !itineraryHtml}
+                                    className="absolute right-3 bottom-3 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2.5 rounded-lg transition-colors flex items-center justify-center"
+                                    title="Ctrl+Enter to send"
+                                >
+                                    <span className="material-symbols-outlined text-lg">send</span>
                                 </button>
                             </div>
+                            <p className="text-xs text-slate-500 mt-2">Hint: Use Ctrl+Enter to quickly send your refinement</p>
                         </div>
                     </div>
                 </div>
