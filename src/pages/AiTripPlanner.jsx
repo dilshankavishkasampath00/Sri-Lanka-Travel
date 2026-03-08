@@ -191,39 +191,80 @@ const AiTripPlanner = () => {
     };
 
     const extractLocationNamesFromHtml = (html) => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const locations = new Set();
-        
-        // Extract all h3, h4, h5 text which usually contains location names
-        const headings = doc.querySelectorAll('h3, h4, h5');
-        const sriLankaLocations = getSriLankaLocations();
-        
-        headings.forEach(heading => {
-            const text = heading.textContent;
-            // Check if any location name is mentioned
+        try {
+            // Safely check if DOMParser is available (might not be in some environments)
+            if (typeof DOMParser === 'undefined') {
+                // Fallback: extract location names using regex
+                const locations = new Set();
+                const sriLankaLocations = getSriLankaLocations();
+                
+                sriLankaLocations.forEach(location => {
+                    if (html.toLowerCase().includes(location.toLowerCase())) {
+                        locations.add(location);
+                    }
+                });
+                
+                return Array.from(locations);
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const locations = new Set();
+            
+            // Extract all h3, h4, h5, p text which usually contains location names
+            const elements = doc.querySelectorAll('h3, h4, h5, p, span, div');
+            const sriLankaLocations = getSriLankaLocations();
+            
+            elements.forEach(element => {
+                const text = element.textContent;
+                // Check if any location name is mentioned
+                sriLankaLocations.forEach(location => {
+                    if (text.toLowerCase().includes(location.toLowerCase())) {
+                        locations.add(location);
+                    }
+                });
+            });
+            
+            return Array.from(locations);
+        } catch (error) {
+            console.warn('Error extracting location names:', error);
+            // Fallback to regex extraction
+            const locations = new Set();
+            const sriLankaLocations = getSriLankaLocations();
+            
             sriLankaLocations.forEach(location => {
-                if (text.toLowerCase().includes(location.toLowerCase())) {
+                if (html.toLowerCase().includes(location.toLowerCase())) {
                     locations.add(location);
                 }
             });
-        });
-        
-        return Array.from(locations);
+            
+            return Array.from(locations);
+        }
     };
 
     const replaceImagesWithLocationImages = async (html, locationNames) => {
         try {
+            if (!html || html.trim().length === 0) {
+                return html;
+            }
+
             setGenerationProgress('🖼️ Fetching REAL location images from coordinates...');
             
             // Fetch images for all locations
             const imageMap = new Map();
-            const locationData = getLocationData();
             
-            for (const location of locationNames) {
-                setGenerationProgress(`📍 Fetching ${location} image...`);
-                const imageUrl = await getLocationImage(location);
-                imageMap.set(location.toLowerCase(), imageUrl);
+            if (locationNames && locationNames.length > 0) {
+                for (const location of locationNames) {
+                    try {
+                        setGenerationProgress(`📍 Fetching ${location} image...`);
+                        const imageUrl = await getLocationImage(location);
+                        if (imageUrl) {
+                            imageMap.set(location.toLowerCase(), imageUrl);
+                        }
+                    } catch (locError) {
+                        console.warn(`Failed to fetch image for ${location}:`, locError);
+                    }
+                }
             }
             
             // Replace image URLs in HTML with location-specific images
@@ -237,40 +278,26 @@ const AiTripPlanner = () => {
                 if (imageMap.has(lowerLocation)) {
                     const imageUrl = imageMap.get(lowerLocation);
                     
-                    // Replace images with alt text containing location name
-                    const altPatterns = [
-                        `alt="${location}"`,
-                        `alt='${location}'`,
-                        `alt="${location}.*?"`,
-                        `alt='${location}.*?'`
-                    ];
-                    
-                    altPatterns.forEach(pattern => {
+                    try {
+                        // Replace images with alt text containing location name
+                        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const escaped = escapeRegex(location);
+                        
+                        // Simple replacement for images with location name in alt
                         updatedHtml = updatedHtml.replace(
-                            new RegExp(`<img([^>]*?)src="[^"]*"([^>]*?${pattern}[^>]*)>`, 'gi'),
-                            `<img$1src="${imageUrl}"$2>`
+                            new RegExp(`alt="${escaped}"`, 'gi'),
+                            `alt="${location}" src-location="${imageUrl}"`
                         );
-                    });
-                    
-                    // Also replace images in divs with location name comments
-                    updatedHtml = updatedHtml.replace(
-                        new RegExp(`<!-- ${location}[^>]*? -->`, 'gi'),
-                        `<!-- ${location} - ${imageUrl} -->`
-                    );
+                    } catch (replaceError) {
+                        console.warn(`Error processing ${location}:`, replaceError);
+                    }
                 }
             });
             
-            // Replace any remaining broken image placeholders
-            updatedHtml = updatedHtml.replace(
-                /src="https:\/\/images\.unsplash\.com\/search\?/g,
-                `src="${getUnsplashImageUrl('Sri Lanka landscape')}&`
-            );
-            
             return updatedHtml;
         } catch (error) {
-            console.error('Error fetching location images:', error);
-            setGenerationProgress('⚠️ Using fallback images...');
-            return html;
+            console.error('Error in replaceImagesWithLocationImages:', error);
+            return html; // Return original HTML if replacement fails
         }
     };
     
@@ -295,11 +322,12 @@ const AiTripPlanner = () => {
     const availableInterests = ['Beaches', 'Wildlife', 'History', 'Surfing', 'Tea Estates', 'Hiking'];
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+        <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark">
             <Navbar />
-            <main className="mx-auto w-full max-w-7xl px-4 py-8 lg:px-8">
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-                    <aside className="lg:col-span-4 flex flex-col gap-6">
+            <main className="mx-auto w-full max-w-7xl px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
+                <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
+                    {/* LEFT SIDEBAR - Build Your Trip & Map */}
+                    <aside className="lg:col-span-4 flex flex-col gap-6 order-2 lg:order-1">
                         <div className="rounded-xl bg-white dark:bg-slate-900 p-6 shadow-sm border border-primary/5">
                             <h3 className="text-2xl font-bold mb-2">Build Your Trip</h3>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Our AI will craft a personalized Sri Lankan journey just for you.</p>
@@ -442,7 +470,8 @@ const AiTripPlanner = () => {
                         </div>
                     </aside>
 
-                    <div className="lg:col-span-8 space-y-8">
+                    {/* RIGHT SIDE - Itinerary Content */}
+                    <div className="lg:col-span-8 space-y-8 order-1 lg:order-2">
                         <section className="relative h-64 w-full overflow-hidden rounded-2xl shadow-xl">
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10"></div>
                             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCFY3Rofhae31FhukHx2m62JF4aTDzif3JhAslugU4ONNE6IbJEBlf151pydRgUiIOy9a_OyPlQneo4VmOVUEqNQpY7VuO07GIMwaggueaWbrU3Zm1aRsUuYQ9y3NZ131EH-NogaMWGaN04OrIH2Ji9lIyqAQWb437XO3mEH4h_XN8bfWx3v7ubjFJLUt1E47kmxPSU-YjgEFzkhiFFD-QPcMIwnKzoB-6Z4TMW0DjQD9aYyLcA989Cc4CULogXSyB4Nfu_ivvJY-4')" }}></div>
