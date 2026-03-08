@@ -7,42 +7,48 @@ const Destinations = () => {
     return (
         <>
             <Navbar />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-12">
+            <main className="mx-auto w-full max-w-7xl flex-1 px-3 sm:px-4 lg:px-6 py-8 sm:py-12">
                 {/* Hero Section Header */}
-                <div className="mb-12 flex flex-col items-start gap-4">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                <div className="mb-8 sm:mb-12 flex flex-col items-start gap-2 sm:gap-4">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary">
                         <span className="material-symbols-outlined text-sm">explore</span>
                         Paradise Awaits
                     </div>
-                    <h1 className="max-w-2xl text-5xl font-black leading-tight text-slate-900 dark:text-slate-100 md:text-6xl">
+                    <h1 className="max-w-3xl text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight text-slate-900 dark:text-slate-100">
                         Explore Our <span className="text-primary">Destinations</span>
                     </h1>
-                    <p className="max-w-xl text-lg text-slate-600 dark:text-slate-400">
+                    <p className="max-w-xl text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-400">
                         Discover the magic of Sri Lanka's most iconic locations, from ancient rock fortresses to misty tea plantations and pristine beaches.
                     </p>
                 </div>
 
                 {/* Filters */}
-                <div className="mb-10 flex flex-wrap items-center gap-3 border-b border-primary/5 pb-8">
-                    <button className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20">
-                        <span className="material-symbols-outlined text-lg">grid_view</span> All Destinations
+                <div className="mb-8 sm:mb-10 flex flex-wrap items-center gap-2 sm:gap-3 border-b border-primary/5 pb-6 sm:pb-8">
+                    <button className="flex items-center gap-2 rounded-lg bg-primary px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-primary/20 hover:shadow-xl transition-shadow">
+                        <span className="material-symbols-outlined text-base sm:text-lg">grid_view</span>
+                        <span className="hidden sm:inline">All Destinations</span>
+                        <span className="sm:hidden">All</span>
                     </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300">
-                        <span className="material-symbols-outlined text-lg">landscape</span> Nature
+                    <button className="flex items-center gap-2 rounded-lg bg-white px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300 transition-colors">
+                        <span className="material-symbols-outlined text-base sm:text-lg">landscape</span>
+                        <span className="hidden sm:inline">Nature</span>
                     </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300">
-                        <span className="material-symbols-outlined text-lg">surfing</span> Coastal
+                    <button className="flex items-center gap-2 rounded-lg bg-white px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300 transition-colors">
+                        <span className="material-symbols-outlined text-base sm:text-lg">surfing</span>
+                        <span className="hidden sm:inline">Coastal</span>
                     </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300">
-                        <span className="material-symbols-outlined text-lg">history_edu</span> Heritage
+                    <button className="flex items-center gap-2 rounded-lg bg-white px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300 transition-colors">
+                        <span className="material-symbols-outlined text-base sm:text-lg">history_edu</span>
+                        <span className="hidden sm:inline">Heritage</span>
                     </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300">
-                        <span className="material-symbols-outlined text-lg">pets</span> Wildlife
+                    <button className="flex items-center gap-2 rounded-lg bg-white px-3 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-slate-600 hover:bg-primary/5 dark:bg-white/5 dark:text-slate-300 transition-colors">
+                        <span className="material-symbols-outlined text-base sm:text-lg">pets</span>
+                        <span className="hidden sm:inline">Wildlife</span>
                     </button>
                 </div>
 
                 {/* Destination Grid */}
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
                     {/* Card 1: Sigiriya */}
                     <div className="group flex flex-col overflow-hidden rounded-xl bg-white shadow-sm transition-all hover:shadow-xl dark:bg-white/5 border border-primary/5">
                         <div className="relative aspect-[4/3] overflow-hidden">
@@ -52,20 +58,24 @@ const Destinations = () => {
                             <img className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" alt="Sigiriya" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCO4j8nDoLQ96BCgOMw_oFqgmkmQDvoVkGnkWq5KlWMtuPOY5a0uZm3KyHMeESUsJwCTQ_opin7RnSofeKNK8rTcfkALvpgdc89pQs3o5SfszMC1CIBtMlHCE4K-uz0pHOuvONkWGarwTLFvtMrKoNav_Bw-EOay4eoWhTaF2LxTtTS7Gsj52UcaShhmcpjcXyeKO25kVfTR6hccmBaRl9j8T8sqsWwLqyW1rcV-v1NKd89gBWfnDQXE4yqCTRG3hqmwGV_FfgPiNI" />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
                         </div>
-                        <div className="flex flex-1 flex-col p-6">
-                            <div className="mb-2 flex items-center justify-between">
-                                <h3 className="text-xl font-bold">Sigiriya</h3>
-                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">UNESCO Heritage</span>
+                        <div className="flex flex-1 flex-col p-4 sm:p-6">
+                            <div className="mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                                <h3 className="text-lg sm:text-xl font-bold">Sigiriya</h3>
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-primary w-fit">UNESCO Heritage</span>
                             </div>
-                            <p className="mb-6 flex-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                            <p className="mb-4 sm:mb-6 flex-1 text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                                 Climb the ancient 'Lion Rock' fortress, a marvel of 5th-century urban planning and home to the world-famous frescos.
                             </p>
-                            <div className="flex flex-col gap-3">
-                                <Link to="/map" className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                                    <span className="material-symbols-outlined text-lg">map</span> View on Map
+                            <div className="flex flex-col gap-2 sm:gap-3">
+                                <Link to="/map" className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-colors hover:bg-primary/90">
+                                    <span className="material-symbols-outlined text-base sm:text-lg">map</span>
+                                    <span className="hidden sm:inline">View on Map</span>
+                                    <span className="sm:hidden">Map</span>
                                 </Link>
-                                <Link to="/hotels" className="flex items-center justify-center gap-1 text-sm font-semibold text-primary hover:underline">
-                                    <span className="material-symbols-outlined text-lg">hotel</span> Nearby Hotels
+                                <Link to="/hotels" className="flex items-center justify-center gap-1 text-xs sm:text-sm font-semibold text-primary hover:underline">
+                                    <span className="material-symbols-outlined text-base sm:text-lg">hotel</span>
+                                    <span className="hidden sm:inline">Nearby Hotels</span>
+                                    <span className="sm:hidden">Hotels</span>
                                 </Link>
                             </div>
                         </div>
